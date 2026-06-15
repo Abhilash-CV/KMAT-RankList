@@ -289,7 +289,7 @@ if responses_file and candidates_file:
             lambda r: round(
                 ((total_candidates - r + 1)
                  / total_candidates) * 100,
-                8
+                5
             )
         )
     )
