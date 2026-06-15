@@ -1,4 +1,4 @@
-```python
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -329,4 +329,4 @@ if responses_file is not None and candidates_file is not None:
 
     except Exception as e:
         st.error(str(e))
-```
+
