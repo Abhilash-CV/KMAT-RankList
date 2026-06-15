@@ -269,29 +269,31 @@ if responses_file and candidates_file:
 
     total_candidates = len(ranklist)
 
-    ranklist["ScoreRank"] = (
+    score_counts = (
         ranklist["Total"]
-        .rank(
-            method="min",
-            ascending=False
-        )
+        .value_counts()
+        .sort_index(ascending=False)
     )
-
-    if total_candidates <= 1:
-        ranklist["Percentile"] = 100.00000
-    else:
-        ranklist["Percentile"] = ranklist[
-            "ScoreRank"
-        ].apply(
-            lambda r: round(
-                (
-                    (total_candidates - r + 1)
-                    / total_candidates
-                ) * 100,
-                5
-            )
+    
+    cum = 0
+    percentile_map = {}
+    
+    for score, count in score_counts.items():
+    
+        percentile = round(
+            ((total_candidates - cum)
+             / total_candidates) * 100,
+            5
         )
-
+    
+        percentile_map[score] = percentile
+    
+        cum += count
+    
+    ranklist["Percentile"] = (
+        ranklist["Total"]
+        .map(percentile_map)
+    )
     ranklist.drop(
         columns=["ScoreRank"],
         inplace=True
