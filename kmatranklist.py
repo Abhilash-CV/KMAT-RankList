@@ -107,12 +107,30 @@ if responses_file and candidates_file:
     ranklist["Rank"] = ranklist.index + 1
 
     total_candidates = len(ranklist)
-    ranklist["SlNo"] = ranklist.index + 1
+    #ranklist["SlNo"] = ranklist.index + 1
+    #if total_candidates <= 1:
+        #ranklist["Percentile"] = 100.00000
+    #else:
+       #ranklist["Percentile"] = ranklist["Rank"].apply(
+        #ranklist["Percentile"] = ranklist["SlNo"].apply(
+            #lambda r: round(
+                #((total_candidates - r + 1)
+                 #/ total_candidates) * 100,
+                #5
+            #)
+        #)
+
+    # Same Total Marks -> Same Rank
+
+    ranklist["CalcRank"] = (
+        ranklist["Total"]
+        .rank(method="min", ascending=False)
+    )
+    
     if total_candidates <= 1:
         ranklist["Percentile"] = 100.00000
     else:
-        ranklist["Percentile"] = ranklist["Rank"].apply(
-        #ranklist["Percentile"] = ranklist["SlNo"].apply(
+        ranklist["Percentile"] = ranklist["CalcRank"].apply(
             lambda r: round(
                 ((total_candidates - r + 1)
                  / total_candidates) * 100,
