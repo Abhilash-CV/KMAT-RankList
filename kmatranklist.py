@@ -267,32 +267,36 @@ if responses_file and candidates_file:
     # Same Score => Same Percentile
     # --------------------------------------------------
 
+   # --------------------------------------------------
+# Percentile (KMAT Published Style)
+# Same Total -> Same Percentile
+# --------------------------------------------------
+
     total_candidates = len(ranklist)
-    ranklist["Total"] = ranklist["Total"].round(2)
-    score_counts = (
+    
+    ranklist["ScoreRank"] = (
         ranklist["Total"]
-        .value_counts()
-        .sort_index(ascending=False)
+        .round(2)
+        .rank(
+            method="min",
+            ascending=False
+        )
     )
     
-    cum = 0
-    percentile_map = {}
-    
-    for score, count in score_counts.items():
-    
-        percentile = round(
-            ((total_candidates - cum)
-             / total_candidates) * 100,
-            5
-        )
-    
-        percentile_map[score] = percentile
-    
-        cum += count
-    
     ranklist["Percentile"] = (
-        ranklist["Total"]
-        .map(percentile_map)
+        ranklist["ScoreRank"]
+        .apply(
+            lambda r: round(
+                ((total_candidates - r + 1)
+                 / total_candidates) * 100,
+                5
+            )
+        )
+    )
+    
+    ranklist.drop(
+        columns=["ScoreRank"],
+        inplace=True
     )
   
 
