@@ -145,8 +145,8 @@ if responses_file and candidates_file:
         )
 
     output = pd.DataFrame({
-        #"Sl.No": ranklist["SlNo"],
-        "Sl.No": ranklist["Rank"],
+        "Sl.No": ranklist["SlNo"],
+        #"Sl.No": ranklist["Rank"],
         "App. No": ranklist["ApplNo"],
         "Roll No": ranklist["RollNo"],
         "Name": ranklist["Name"],
