@@ -110,7 +110,8 @@ if responses_file and candidates_file:
     if total_candidates <= 1:
         ranklist["Percentile"] = 100.00000
     else:
-        ranklist["Percentile"] = ranklist["Rank"].apply(
+        # ranklist["Percentile"] = ranklist["Rank"].apply(
+        ranklist["Percentile"] = ranklist["SlNo"].apply(
             lambda r: round(
                 ((total_candidates - r + 1)
                  / total_candidates) * 100,
