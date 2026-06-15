@@ -166,10 +166,10 @@ if responses_file and candidates_file:
     f3 = 40 / (40 - part3_deleted) if part3_deleted < 40 else 1
     f4 = 40 / (40 - part4_deleted) if part4_deleted < 40 else 1
 
-    result["Part1"] = (result["Part1"] * f1).round(2)
-    result["Part2"] = (result["Part2"] * f2).round(2)
-    result["Part3"] = (result["Part3"] * f3).round(2)
-    result["Part4"] = (result["Part4"] * f4).round(2)
+    result["Part1"] = (result["Part1"] * f1).round(4)
+    result["Part2"] = (result["Part2"] * f2).round(4)
+    result["Part3"] = (result["Part3"] * f3).round(4)
+    result["Part4"] = (result["Part4"] * f4).round(4)
 
     st.info(
         f"Part-I Factor={f1:.6f} | "
@@ -187,7 +187,7 @@ if responses_file and candidates_file:
         + result["Part2"]
         + result["Part3"]
         + result["Part4"]
-    ).round(2)
+    ).round(4)
 
     # --------------------------------------------------
     # Remove Absentees
@@ -276,7 +276,7 @@ if responses_file and candidates_file:
     
     ranklist["ScoreRank"] = (
         ranklist["Total"]
-        .round(2)
+        .round(4)
         .rank(
             method="average",
             ascending=False
@@ -289,7 +289,7 @@ if responses_file and candidates_file:
             lambda r: round(
                 ((total_candidates - r + 1)
                  / total_candidates) * 100,
-                5
+                8
             )
         )
     )
