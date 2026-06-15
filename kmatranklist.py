@@ -106,7 +106,7 @@ if responses_file and candidates_file:
     ranklist["Rank"] = ranklist.index + 1
 
     total_candidates = len(ranklist)
-
+    ranklist["SlNo"] = ranklist.index + 1
     if total_candidates <= 1:
         ranklist["Percentile"] = 100.00000
     else:
@@ -120,7 +120,7 @@ if responses_file and candidates_file:
         )
 
     output = pd.DataFrame({
-        "Sl.No": ranklist["Rank"],
+        "Sl.No": ranklist["SlNo"],
         "App. No": ranklist["ApplNo"],
         "Roll No": ranklist["RollNo"],
         "Name": ranklist["Name"],
