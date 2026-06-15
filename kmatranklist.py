@@ -278,7 +278,7 @@ if responses_file and candidates_file:
         ranklist["Total"]
         .round(2)
         .rank(
-            method="avg",
+            method="average",
             ascending=False
         )
     )
