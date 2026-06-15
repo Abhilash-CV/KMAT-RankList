@@ -268,7 +268,7 @@ if responses_file and candidates_file:
     # --------------------------------------------------
 
     total_candidates = len(ranklist)
-
+    ranklist["Total"] = ranklist["Total"].round(2)
     score_counts = (
         ranklist["Total"]
         .value_counts()
@@ -294,10 +294,7 @@ if responses_file and candidates_file:
         ranklist["Total"]
         .map(percentile_map)
     )
-    ranklist.drop(
-        columns=["ScoreRank"],
-        inplace=True
-    )
+  
 
     # --------------------------------------------------
     # Output
