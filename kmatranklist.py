@@ -1,4 +1,4 @@
-```python
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -230,4 +230,4 @@ if responses_file and candidate_file:
             f,
             file_name="MBA_RankList.xlsx"
         )
-```
+
