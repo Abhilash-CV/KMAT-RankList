@@ -1,332 +1,132 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 from io import BytesIO
 
-st.set_page_config(
-    page_title="KMAT Rank List Generator",
-    layout="wide"
-)
-
+st.set_page_config(page_title="KMAT Rank List Generator", layout="wide")
 st.title("KMAT Rank List Generator")
 
-# --------------------------------------------------
-# Upload Files
-# --------------------------------------------------
+st.sidebar.header("Correction Factors")
 
-responses_file = st.file_uploader(
-    "Upload CBT Responses Excel",
-    type=["xlsx"]
-)
+part1_deleted = st.sidebar.number_input("Deleted Questions in Part-I (1-50)", 0, 49, 0)
+part2_deleted = st.sidebar.number_input("Deleted Questions in Part-II (51-100)", 0, 49, 0)
+part3_deleted = st.sidebar.number_input("Deleted Questions in Part-III (101-140)", 0, 39, 0)
+part4_deleted = st.sidebar.number_input("Deleted Questions in Part-IV (141-180)", 0, 39, 0)
 
-candidates_file = st.file_uploader(
-    "Upload Candidates Excel",
-    type=["xlsx"]
-)
+st.sidebar.header("Qualification")
+apply_cutoff = st.sidebar.checkbox("Apply Qualification Cutoff", value=False)
 
-# --------------------------------------------------
-# Process
-# --------------------------------------------------
+responses_file = st.file_uploader("Upload CBT_Responses.xlsx", type=["xlsx"])
+candidates_file = st.file_uploader("Upload Candidates.xlsx", type=["xlsx"])
 
-if responses_file is not None and candidates_file is not None:
+if responses_file and candidates_file:
 
-    try:
+    responses = pd.read_excel(responses_file)
+    candidates = pd.read_excel(candidates_file)
 
-        responses = pd.read_excel(responses_file)
-        candidates = pd.read_excel(candidates_file)
+    responses["QNo"] = pd.to_numeric(responses["QNo"], errors="coerce")
+    responses["Mark"] = pd.to_numeric(responses["Mark"], errors="coerce").fillna(0)
 
-        # -------------------------------------------
-        # Validation
-        # -------------------------------------------
+    part1 = responses[responses["QNo"].between(1, 50)].groupby("RollNo")["Mark"].sum().reset_index(name="Part1")
+    part2 = responses[responses["QNo"].between(51, 100)].groupby("RollNo")["Mark"].sum().reset_index(name="Part2")
+    part3 = responses[responses["QNo"].between(101, 140)].groupby("RollNo")["Mark"].sum().reset_index(name="Part3")
+    part4 = responses[responses["QNo"].between(141, 180)].groupby("RollNo")["Mark"].sum().reset_index(name="Part4")
 
-        required_response_cols = ["RollNo", "QNo", "Mark"]
-        required_candidate_cols = ["RollNo", "ApplNo", "Name"]
+    result = candidates.merge(part1, on="RollNo", how="left")
+    result = result.merge(part2, on="RollNo", how="left")
+    result = result.merge(part3, on="RollNo", how="left")
+    result = result.merge(part4, on="RollNo", how="left")
 
-        for col in required_response_cols:
-            if col not in responses.columns:
-                st.error(f"Column '{col}' missing in CBT Responses file")
-                st.stop()
+    for c in ["Part1", "Part2", "Part3", "Part4"]:
+        result[c] = pd.to_numeric(result[c], errors="coerce").fillna(0)
 
-        for col in required_candidate_cols:
-            if col not in candidates.columns:
-                st.error(f"Column '{col}' missing in Candidates file")
-                st.stop()
+    f1 = 50 / (50 - part1_deleted) if part1_deleted < 50 else 1
+    f2 = 50 / (50 - part2_deleted) if part2_deleted < 50 else 1
+    f3 = 40 / (40 - part3_deleted) if part3_deleted < 40 else 1
+    f4 = 40 / (40 - part4_deleted) if part4_deleted < 40 else 1
 
-        # -------------------------------------------
-        # Part-wise Marks
-        # -------------------------------------------
+    result["Part1"] = (result["Part1"] * f1).round(2)
+    result["Part2"] = (result["Part2"] * f2).round(2)
+    result["Part3"] = (result["Part3"] * f3).round(2)
+    result["Part4"] = (result["Part4"] * f4).round(2)
 
-        part1 = (
-            responses[
-                responses["QNo"].between(1, 50)
-            ]
-            .groupby("RollNo")["Mark"]
-            .sum()
-            .reset_index(name="Part1")
+    st.info(
+        f"Part-I Factor={f1:.6f} | Part-II Factor={f2:.6f} | "
+        f"Part-III Factor={f3:.6f} | Part-IV Factor={f4:.6f}"
+    )
+
+    result["Total"] = (
+        result["Part1"] +
+        result["Part2"] +
+        result["Part3"] +
+        result["Part4"]
+    ).round(2)
+
+    def qualification(row):
+        score = row["Total"]
+        category = str(row.get("Category", "")).upper()
+        special3 = str(row.get("Special3", "")).upper()
+
+        if category in ["SC", "ST"] or special3 == "PD":
+            return "Qualified" if score >= 54 else "Not Qualified"
+
+        return "Qualified" if score >= 72 else "Not Qualified"
+
+    result["Qualification"] = result.apply(qualification, axis=1)
+
+    if apply_cutoff:
+        ranklist = result[result["Qualification"] == "Qualified"].copy()
+    else:
+        ranklist = result.copy()
+
+    if "DOB" in ranklist.columns:
+        ranklist["DOB"] = pd.to_datetime(ranklist["DOB"], errors="coerce")
+    else:
+        ranklist["DOB"] = pd.NaT
+
+    ranklist = ranklist.sort_values(
+        by=["Total", "Part4", "Part3", "Part2", "DOB"],
+        ascending=[False, False, False, False, True]
+    ).reset_index(drop=True)
+
+    ranklist["Rank"] = ranklist.index + 1
+
+    total_candidates = len(ranklist)
+
+    if total_candidates <= 1:
+        ranklist["Percentile"] = 100.0
+    else:
+        ranklist["Percentile"] = ranklist["Rank"].apply(
+            lambda r: round(((total_candidates - r) / (total_candidates - 1)) * 100, 5)
         )
 
-        part2 = (
-            responses[
-                responses["QNo"].between(51, 100)
-            ]
-            .groupby("RollNo")["Mark"]
-            .sum()
-            .reset_index(name="Part2")
-        )
+    output = pd.DataFrame({
+        "Sl.No": ranklist["Rank"],
+        "App. No": ranklist["ApplNo"],
+        "Roll No": ranklist["RollNo"],
+        "Name": ranklist["Name"],
+        "Part-I(Out of 200)": ranklist["Part1"],
+        "Part-II(Out of 200)": ranklist["Part2"],
+        "Part-III(Out of 160)": ranklist["Part3"],
+        "Part-IV(Out of 160)": ranklist["Part4"],
+        "Total(Out of 720)": ranklist["Total"],
+        "Percentile": ranklist["Percentile"]
+    })
 
-        part3 = (
-            responses[
-                responses["QNo"].between(101, 140)
-            ]
-            .groupby("RollNo")["Mark"]
-            .sum()
-            .reset_index(name="Part3")
-        )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Appeared", len(result))
+    c2.metric("Ranked", len(ranklist))
+    c3.metric("Highest Score", ranklist["Total"].max() if len(ranklist) else 0)
 
-        part4 = (
-            responses[
-                responses["QNo"].between(141, 180)
-            ]
-            .groupby("RollNo")["Mark"]
-            .sum()
-            .reset_index(name="Part4")
-        )
+    st.dataframe(output, use_container_width=True)
 
-        # -------------------------------------------
-        # Merge
-        # -------------------------------------------
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        output.to_excel(writer, index=False, sheet_name="RankList")
 
-        result = candidates.merge(
-            part1,
-            on="RollNo",
-            how="left"
-        )
-
-        result = result.merge(
-            part2,
-            on="RollNo",
-            how="left"
-        )
-
-        result = result.merge(
-            part3,
-            on="RollNo",
-            how="left"
-        )
-
-        result = result.merge(
-            part4,
-            on="RollNo",
-            how="left"
-        )
-
-        # -------------------------------------------
-        # Fill only numeric mark columns
-        # -------------------------------------------
-
-        for col in ["Part1", "Part2", "Part3", "Part4"]:
-            if col not in result.columns:
-                result[col] = 0
-
-            result[col] = pd.to_numeric(
-                result[col],
-                errors="coerce"
-            ).fillna(0)
-
-        # -------------------------------------------
-        # Total
-        # -------------------------------------------
-
-        result["Total"] = (
-            result["Part1"]
-            + result["Part2"]
-            + result["Part3"]
-            + result["Part4"]
-        )
-
-        # -------------------------------------------
-        # Qualification
-        # General / SEBC : 72
-        # SC/ST/PD       : 54
-        # -------------------------------------------
-
-        def qualification(row):
-
-            score = row["Total"]
-
-            category = str(
-                row.get("Category", "")
-            ).upper()
-
-            special3 = str(
-                row.get("Special3", "")
-            ).upper()
-
-            if (
-                category in ["SC", "ST"]
-                or special3 == "PD"
-            ):
-                return "Qualified" if score >= 54 else "Not Qualified"
-
-            return "Qualified" if score >= 72 else "Not Qualified"
-
-        result["Qualification"] = result.apply(
-            qualification,
-            axis=1
-        )
-
-        # -------------------------------------------
-        # Qualified Candidates Only
-        # -------------------------------------------
-
-        ranklist = result[
-            result["Qualification"] == "Qualified"
-        ].copy()
-
-        # -------------------------------------------
-        # DOB
-        # -------------------------------------------
-
-        if "DOB" in ranklist.columns:
-            ranklist["DOB"] = pd.to_datetime(
-                ranklist["DOB"],
-                errors="coerce"
-            )
-        else:
-            ranklist["DOB"] = pd.NaT
-
-        # -------------------------------------------
-        # Tie Break
-        # 1 Total
-        # 2 Part4
-        # 3 Part3
-        # 4 Part2
-        # 5 Older Candidate
-        # -------------------------------------------
-
-        ranklist = ranklist.sort_values(
-            by=[
-                "Total",
-                "Part4",
-                "Part3",
-                "Part2",
-                "DOB"
-            ],
-            ascending=[
-                False,
-                False,
-                False,
-                False,
-                True
-            ]
-        )
-
-        ranklist.reset_index(
-            drop=True,
-            inplace=True
-        )
-
-        # -------------------------------------------
-        # Rank
-        # -------------------------------------------
-
-        ranklist["Rank"] = (
-            ranklist.index + 1
-        )
-
-        total_qualified = len(ranklist)
-
-        # -------------------------------------------
-        # Percentile
-        # -------------------------------------------
-
-        if total_qualified == 1:
-            ranklist["Percentile"] = 100.00000
-        else:
-            ranklist["Percentile"] = ranklist["Rank"].apply(
-                lambda x: round(
-                    (
-                        (total_qualified - x)
-                        / (total_qualified - 1)
-                    ) * 100,
-                    5
-                )
-            )
-
-        # -------------------------------------------
-        # Output
-        # -------------------------------------------
-
-        output = pd.DataFrame()
-
-        output["Sl.No"] = ranklist["Rank"]
-        output["App. No"] = ranklist["ApplNo"]
-        output["Roll No"] = ranklist["RollNo"]
-        output["Name"] = ranklist["Name"]
-
-        output["Part-I(Out of 200)"] = ranklist["Part1"]
-        output["Part-II(Out of 200)"] = ranklist["Part2"]
-        output["Part-III(Out of 160)"] = ranklist["Part3"]
-        output["Part-IV(Out of 160)"] = ranklist["Part4"]
-
-        output["Total(Out of 720)"] = ranklist["Total"]
-        output["Percentile"] = ranklist["Percentile"]
-
-        # -------------------------------------------
-        # Statistics
-        # -------------------------------------------
-
-        st.success(
-            f"Qualified Candidates : {len(output)}"
-        )
-
-        col1, col2, col3 = st.columns(3)
-
-        col1.metric(
-            "Appeared",
-            len(result)
-        )
-
-        col2.metric(
-            "Qualified",
-            len(ranklist)
-        )
-
-        col3.metric(
-            "Highest Score",
-            output["Total(Out of 720)"].max()
-        )
-
-        st.dataframe(
-            output,
-            use_container_width=True
-        )
-
-        # -------------------------------------------
-        # Excel Download
-        # -------------------------------------------
-
-        excel_buffer = BytesIO()
-
-        with pd.ExcelWriter(
-            excel_buffer,
-            engine="openpyxl"
-        ) as writer:
-
-            output.to_excel(
-                writer,
-                sheet_name="RankList",
-                index=False
-            )
-
-        st.download_button(
-            label="Download Rank List",
-            data=excel_buffer.getvalue(),
-            file_name="KMAT_RankList.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
-    except Exception as e:
-        st.error(str(e))
-
+    st.download_button(
+        "Download Rank List",
+        buffer.getvalue(),
+        "KMAT_RankList.xlsx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
