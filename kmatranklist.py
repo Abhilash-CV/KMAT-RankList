@@ -99,8 +99,9 @@ if responses_file and candidates_file:
         ranklist["DOB"] = pd.NaT
 
     ranklist = ranklist.sort_values(
-        by=["Total", "Part4", "Part3", "Part2", "DOB"],
-        ascending=[False, False, False, False, True]
+        #by=["Total", "Part4", "Part3", "Part2", "DOB"],
+        by=["Total","DOB"],
+        ascending=[False, True]
     ).reset_index(drop=True)
 
     ranklist["Rank"] = ranklist.index + 1
@@ -110,8 +111,8 @@ if responses_file and candidates_file:
     if total_candidates <= 1:
         ranklist["Percentile"] = 100.00000
     else:
-        # ranklist["Percentile"] = ranklist["Rank"].apply(
-        ranklist["Percentile"] = ranklist["SlNo"].apply(
+        ranklist["Percentile"] = ranklist["Rank"].apply(
+        #ranklist["Percentile"] = ranklist["SlNo"].apply(
             lambda r: round(
                 ((total_candidates - r + 1)
                  / total_candidates) * 100,
@@ -120,7 +121,8 @@ if responses_file and candidates_file:
         )
 
     output = pd.DataFrame({
-        "Sl.No": ranklist["SlNo"],
+        #"Sl.No": ranklist["SlNo"],
+        "Sl.No": ranklist["Rank"],
         "App. No": ranklist["ApplNo"],
         "Roll No": ranklist["RollNo"],
         "Name": ranklist["Name"],
