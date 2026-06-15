@@ -55,12 +55,26 @@ if responses_file and candidates_file:
         f"Part-III Factor={f3:.6f} | Part-IV Factor={f4:.6f}"
     )
 
+    # --------------------------------------------------
+# Total Score
+# --------------------------------------------------
+
     result["Total"] = (
         result["Part1"] +
         result["Part2"] +
         result["Part3"] +
         result["Part4"]
     ).round(2)
+    
+    # --------------------------------------------------
+    # Keep only candidates who actually appeared
+    # --------------------------------------------------
+    
+    appeared_candidates = responses["RollNo"].unique()
+    
+    result = result[
+        result["RollNo"].isin(appeared_candidates)
+    ].copy()
 
     def qualification(row):
         score = row["Total"]
