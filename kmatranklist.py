@@ -108,10 +108,14 @@ if responses_file and candidates_file:
     total_candidates = len(ranklist)
 
     if total_candidates <= 1:
-        ranklist["Percentile"] = 100.0
+        ranklist["Percentile"] = 100.00000
     else:
         ranklist["Percentile"] = ranklist["Rank"].apply(
-            lambda r: round(((total_candidates - r) / (total_candidates - 1)) * 100, 5)
+            lambda r: round(
+                ((total_candidates - r + 1)
+                 / total_candidates) * 100,
+                5
+            )
         )
 
     output = pd.DataFrame({
